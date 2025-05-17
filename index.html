@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <title>St-John Deacon School</title>
+  <style>
+    body {
+      font-family: 'Cairo', sans-serif;
+      text-align: center;
+      background-color: #f8f8f8;
+      padding: 30px;
+    }
+    input, button {
+      padding: 10px;
+      font-size: 16px;
+      margin: 10px;
+      width: 300px;
+    }
+    #result {
+      margin-top: 20px;
+      font-size: 18px;
+      background: #fff;
+      padding: 20px;
+      border-radius: 10px;
+      display: inline-block;
+      text-align: right;
+      max-width: 600px;
+      word-wrap: break-word;
+    }
+  </style>
+</head>
+<body>
+  <h1>الاستعلام عن النتيجة</h1>
+
+  <input type="text" id="searchInput" placeholder="اكتب الاسم (كامل) أو رقم التليفون" />
+  <br />
+  <button onclick="search()">بحث</button>
+
+  <div id="result"></div>
+
+  <script>
+    let results = [];
+
+    Promise.all([
+      fetch('https://raw.githubusercontent.com/KeroNagy25/deacon/refs/heads/main/cleaned_combined_data.json'),
+      fetch('https://raw.githubusercontent.com/KeroNagy25/deacon/refs/heads/main/students_results.json')
+    ])
+      .then(responses => Promise.all(responses.map(response => {
+        if (!response.ok) {
+          throw new Error('فشل تحميل أحد الملفات: ' + response.statusText);
+        }
+        return response.json();
+      })))
+      .then(dataArrays => {
+        // دمج البيانات من الملفين في مصفوفة واحدة
+        results = [].concat(...dataArrays);
+        console.log('Loaded data:', results); // طباعة البيانات المحملة
+        console.log('Number of records:', results.length); // طباعة عدد السجلات
+        if (results.length === 0) {
+          document.getElementById('result').innerText = 'البيانات المحملة فاضية!';
+        }
+      })
+      .catch(err => {
+        document.getElementById('result').innerText = 'فشل تحميل البيانات: ' + err.message;
+        console.error('Error loading data:', err);
+      });
+
+    function search() {
+      const input = document.getElementById('searchInput').value.trim().toLowerCase().replace(/\s+/g, ' ');
+      const resultBox = document.getElementById('result');
+
+      console.log('Search input:', input); // تصحيح: طباعة الإدخال
+
+      if (!input) {
+        resultBox.innerText = 'من فضلك أدخل الاسم أو رقم التليفون.';
+        return;
+      }
+
+      const words = input.split(/\s+/);
+      const isPhone = /^\d+$/.test(input);
+
+      if (words.length < 2 && !isPhone) {
+        resultBox.innerText = 'الرجاء كتابة الاسم كاملاً (كلمتين على الأقل) أو رقم التليفون بالكامل.';
+        return;
+      }
+
+      const matchedStudents = results.filter(student => {
+        const name = (student['الاسم'] || '').toLowerCase().replace(/\s+/g, ' ').trim();
+        const phone = String(student['رقم التليفون'] || '').trim();
+        const nameWords = name.split(' ');
+        console.log('Checking student:', name, phone); // تصحيح: طباعة بيانات الطالب
+        return (isPhone && phone.includes(input)) || 
+               (!isPhone && words.every(word => nameWords.some(nw => nw.includes(word))));
+      });
+
+      console.log('Matched students:', matchedStudents); // تصحيح: طباعة النتائج المتطابقة
+
+      if (matchedStudents.length > 0) {
+        let html = '';
+        matchedStudents.forEach(student => {
+          html += `
+            <strong>الاسم:</strong> ${student['الاسم']}<br>
+            <strong>رقم التليفون:</strong> ${student['رقم التليفون']}<br>
+            <strong>السن:</strong> ${student['السن']}<br>
+            <strong>الجنس:</strong> ${student['الجنس']}<br>
+            <strong>السنة الدراسية:</strong> ${student['السنة الدراسية']}<br>
+            <strong>الرتبة الشماسية:</strong> ${student['الرتبة الشماسية'] || '-'}<br>
+            <strong>عدد مرات حضور الترم الثاني:</strong> ${student['عدد مرات حضور الترم الثاني 8']}<br>
+            <strong>درجة الحضور:</strong> ${student['درجة الحضور 20']}<br>
+            <strong>درجة الألحان:</strong> ${student['درجة الألحان 40']}<br>
+            <strong>درجة القبطي:</strong> ${student['درجة القبطي 20']}<br>
+            <strong>درجة الطقس:</strong> ${student['درجة الطقس 20']}<br>
+            <strong>نتيجة الترم الثاني:</strong> ${student['نتيجة الترم الثاني % '] || '-'}%<br>
+            <strong>نتيجة الترمين:</strong> ${student['نتيجة الترمين % '] || '-'}%<br>
+            <hr>
+          `;
+        });
+        resultBox.innerHTML = html;
+      } else {
+        resultBox.innerText = 'لا يوجد طالب بهذا الاسم أو رقم التليفون.';
+      }
+    }
+  </script>
+</body>
+</html>
